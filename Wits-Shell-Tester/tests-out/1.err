@@ -1,0 +1,1 @@
+tester/run-tests.sh: line 29: 70470 Segmentation fault      ./witsshell tests/1.in

@@ -1,0 +1,2 @@
+No such file or directory
+tester/run-tests.sh: line 29: 72442 Segmentation fault      ./witsshell tests/basic/2.in
