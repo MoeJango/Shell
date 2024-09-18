@@ -53,11 +53,6 @@ int valid(char* words[], int word_count) {    // -1 if invalid, 0 if exit, 1 if 
         }
     }
     else if (strcmp(words[0], "path") == 0) {
-        for (int i = 1; i < word_count; i++) {
-            if (!(words[i][0] == '/' && words[i][strlen(words[i]) - 1] == '/')) {
-                return -1;
-            }
-        }
         return 2;
     }
     else if (word_count == 0) {
@@ -68,20 +63,47 @@ int valid(char* words[], int word_count) {    // -1 if invalid, 0 if exit, 1 if 
     }
 }
 
-bool findPath(char program[], char* paths[], char* path, int word_count) {
-	for (int i=0; i<word_count-1; i++) {
-		path = realloc(path, strlen(paths[i]) + strlen(program) + 1);
-		strcpy(path, paths[i]);
-		strcat(path, program);
-		if (access(path, X_OK) == 0) {
+bool findPath(char program[], char* paths[], char** path, int numPaths) {
+	if (paths[0] == NULL) {
+		free(*path);
+		*path = NULL;
+		return false;
+	}
+	for (int i=0; i<numPaths; i++) {
+		*path = realloc(*path, strlen(paths[i]) + strlen(program) + 1);
+		strcpy(*path, paths[i]);
+		strcat(*path, program);
+		if (access(*path, X_OK) == 0) {
 			return true;
 		}
 	}
+	free(*path);
+	*path = NULL;
 	return false;
 }
 
 
-int main() {
+int main(char argc, char* argv[]) {
+	const char error_message[30] = "An error has occurred\n";
+	FILE* file;
+
+	int mode;
+	if (argc == 1) {
+		mode = 0;
+	}
+	else if (argc == 2) {
+		mode = 1;
+		file = fopen(argv[1], "r");
+		if (file == NULL) {
+			write(STDERR_FILENO, error_message, strlen(error_message));
+			exit(1);
+		}
+	}
+	else {
+		write(STDERR_FILENO, error_message, strlen(error_message));
+		exit(1);
+	}
+
     char* input = NULL;
     size_t len;
 
@@ -91,6 +113,7 @@ int main() {
 
     char** paths = malloc(sizeof(char*));
     paths[0] = malloc(1024);
+	int numPaths = 1;
     strcpy(paths[0], "/bin/");
 
     char** words = NULL;
@@ -99,11 +122,32 @@ int main() {
 
     char prompt[] = "witsshell> ";
 
-    const char error_message[30] = "An error has occurred\n";
-
     do {
-        printf("%s", prompt);
-        getline(&input, &len, stdin);
+		if (mode == 0) {
+        	printf("%s", prompt);
+		}
+
+		if (mode == 0) {
+        	getline(&input, &len, stdin);
+		}
+		else {
+			getline(&input, &len, file);
+		}
+
+		if (mode == 1) {
+			if (feof(file)) {
+				break;
+			}
+		}
+		else if (feof(stdin)) {
+			break;
+		}
+
+		if (input == NULL || strlen(input) == 0 || strcmp(input, "\n") == 0) {
+    		continue;  
+		}
+
+		
 
         words = realloc(words, sizeof(char*) * (strlen(input)/2 + 2));
 
@@ -112,6 +156,10 @@ int main() {
         }
 
         process(input, words, word_count);
+
+		if (*word_count == 0) {
+			continue;
+		}
 
         int check = valid(words, *word_count);
 
@@ -130,11 +178,18 @@ int main() {
         }
 
         else if (check == 2) {
-            paths = realloc(paths, sizeof(char*) * (*word_count-1));
-            for (int i = 1; i < *word_count; i++) {
-                paths[i] = malloc(strlen(words[i]) + 1);
-                strcpy(paths[i], words[i]);
-            }
+			if (*word_count == 1) {
+				paths = realloc(paths, sizeof(char*));
+				paths[0] = NULL;
+			}
+			else {
+				paths = realloc(paths, sizeof(char*) * (*word_count-1));
+				numPaths = *word_count-1;
+				for (int i = 0; i < *word_count-1; i++) {
+					paths[i] = malloc(strlen(words[i+1]) + 1);
+					strcpy(paths[i], words[i+1]);
+				}
+			}
         }
 
         else if (check == 3) {
@@ -143,7 +198,7 @@ int main() {
 
         else {
 			char* exec_path = NULL;
-			if (findPath(words[0], paths, exec_path, *word_count)) {
+			if (findPath(words[0], paths, &exec_path, numPaths)) {
 				if (pipe(pipefd1) == -1 || pipe(pipefd2) == -1) {
 					perror("");
 				}
@@ -200,7 +255,7 @@ int main() {
 			}
         }
     }
-    while (strcmp(input, "exit\n") != 0);
+    while (1);
     exit(0);
 }
 

@@ -1,1 +1,2 @@
-tester/run-tests.sh: line 29: 70564 Segmentation fault      ./witsshell tests/11.in
+ls: cannot access 'tests/p2a-test>/tmp/output11': No such file or directory
+cat: /tmp/output11: No such file or directory
